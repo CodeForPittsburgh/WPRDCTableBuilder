@@ -13,23 +13,43 @@
  * Other databases, will have their own column definitions
  * This has been tested on the fire and city location data sets
  */
+/*
+ * Update log:
+ * Mark Howe 10/31/2017
+ * Added id for offense 30 days, arrest and city properties
+ * Data errors found with missing lat/lng
+ * Data errors found missing Age in offense and arrest
+ * Added code to write errors to errorlog.sql for review
+ * Added $tablename variable to control creat and insert table information
+ * Added code to handle bool 1) convert to BOOLEAN and 2) add column value to TRUE or FALSE
+ * from the city property file
+ */
 $names = array();
 $labels = array();
 $types = array();
 $column_names = array();
 $text_size = array();
+$timezone = "America/New_York";
+date_default_timezone_set($timezone);
+$seconds = 15000;
+set_time_limit($seconds);
 
 global $handle, $error, $tablename;
 $filename = 'data\wprdcquery.json';
 $handle = fopen("data/insert.sql", "w");
 $errorlog = fopen("data/errorlog.sql", "w");
-$tablename = "city"; //change this based on your data download name
+$tablename = "offense"; //change this based on your data download name
 
 
-$id = "fbb50b02-2879-47cd-abea-ae697ec05170"; // change this based on your data download
+$cityid = "fbb50b02-2879-47cd-abea-ae697ec05170"; // change this based on your data download
+$arrestid = "e03a89dd-134a-4ee8-a2bd-62c40aeebc6f";
+$offenseid ="1797ead8-8262-41cc-9099-cbc8a161924b";
+$fireid = "8d76ac6b-5ae8-4428-82a4-043130d17b02";
+
 $month = "10"; // used in the where statement
 $year = "2017"; // used in the where statement
 
+$id = $offenseid;
 
 $url = buildURL($id, $month, $year);
 print "Built url " . $url . PHP_EOL;
@@ -44,6 +64,7 @@ function buildURL($id, $month, $year) {
     $url = "https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT+%2A+from+%22" . $id . "%22+WHERE+date_part%28%27year%27%2C+%22alarm_time%22%29+%3D+%27" . $year . "%27+and+date_part%28%27month%27%2C+%22alarm_time%22%29+%3D+%27" . $month . "%27";
     return $allurl;
 }
+
 // The is based on running in a web server
 // lots of debug output at this time
 
@@ -261,7 +282,16 @@ function createSQL($labels, $names, $types) {
         if ($labels[$i] === "latitude" && strlen($names[$i]) === 0) {
             $writeerror = TRUE;
         }
+        if ($labels[$i] === "X" && strlen($names[$i]) === 0) {
+            $writeerror = TRUE;
+        }
         if ($labels[$i] === "longitude" && strlen($names[$i]) === 0) {
+            $writeerror = TRUE;
+        }
+        if ($labels[$i] === "Y" && strlen($names[$i]) === 0) {
+            $writeerror = TRUE;
+        }
+        if ($labels[$i] === "AGE" && strlen($names[$i]) === 0) {
             $writeerror = TRUE;
         }
         if ($types[$i] === "text" || $types[$i] === "timestamp") {
