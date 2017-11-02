@@ -23,6 +23,10 @@
  * Added $tablename variable to control creat and insert table information
  * Added code to handle bool 1) convert to BOOLEAN and 2) add column value to TRUE or FALSE
  * from the city property file
+ * 
+ * Mark Howe 11/02/2017
+ * Added code to add quotes around column name that has spaces or #
+ * found these in the bike station data set
  */
 $names = array();
 $labels = array();
@@ -38,21 +42,22 @@ global $handle, $error, $tablename;
 $filename = 'data\wprdcquery.json';
 $handle = fopen("data/insert.sql", "w");
 $errorlog = fopen("data/errorlog.sql", "w");
-$tablename = "offense"; //change this based on your data download name
-
-
+$tablename = "bikestation"; //change this based on your data download name
+//https://data.wprdc.org/datastore/odata3.0/4a24a548-3160-4a78-8baa-19ef7b93bbe0?$top=5&$skip=1
 $cityid = "fbb50b02-2879-47cd-abea-ae697ec05170"; // change this based on your data download
 $arrestid = "e03a89dd-134a-4ee8-a2bd-62c40aeebc6f";
-$offenseid ="1797ead8-8262-41cc-9099-cbc8a161924b";
+$offenseid = "1797ead8-8262-41cc-9099-cbc8a161924b";
 $fireid = "8d76ac6b-5ae8-4428-82a4-043130d17b02";
+$summaryid = "6b11e87d-1216-463d-bbd3-37460e539d86";
+$bikestationid = "4a24a548-3160-4a78-8baa-19ef7b93bbe0";
 
 $month = "10"; // used in the where statement
 $year = "2017"; // used in the where statement
 
-$id = $offenseid;
+$id = $bikestationid;
 
 $url = buildURL($id, $month, $year);
-print "Built url " . $url . PHP_EOL;
+print "Built url " . $url . "<BR>";
 
 main($filename, $url);
 
@@ -85,7 +90,7 @@ function createColumnNames($labels, $types) {
         print "ID " . $labels[$i] . "<BR>";
         print "TYPE " . $types[$i] . "<BR>";
         $pg_type = createTypes($types[$i], $i);
-        $column_name = $labels[$i] . " " . $pg_type . ",";
+        $column_name = hasSpace($labels[$i]) . " " . $pg_type . ",";
         print $column_name . "<BR>";
         array_push($column_names, $column_name);
     }
@@ -200,18 +205,53 @@ function setNames($labels, $data1, $location) {
     $labelsize = sizeof($labels);
     for ($i = 0; $i < $labelsize; $i++) {
         $name = pg_escape_string($data1[$location][$labels[$i]]);
+        //$name = replacePoundSign($name);
         // this was needed for the city dataset, potential code changes
         // for other datasets
         if ($labels[$i] === "inactive" || $labels[$i] === "rentable") {
-            if ($name) {
-                $name = 'TRUE';
-            } else {
-                $name = 'FALSE';
-            }
+            $name = correctName($name);
         }
         array_push($names, $name);
     }
     printFireResults($labels, $names, $types);
+}
+
+function correctName($name) {
+    if ($name) {
+        $name = 'TRUE';
+    } else {
+        $name = 'FALSE';
+    }
+    return $name;
+}
+
+function hasSpace($mystring) {
+    $space = strpos($mystring, " ");
+    if ($space > 0) {
+        print "Found space at " . $space . "<BR>";
+        $mystringtmp = "\"" . $mystring . "\"";
+        $mystring = $mystringtmp;
+    }
+    return $mystring;
+}
+
+function replacePoundSign($mystring) {
+
+    print "Before Column Name " . $mystring . " " . strlen($mystring) . "<BR>";
+    $newphrase = $mystring;
+    $s1 = "# of Racks";
+    print "Before S1 Column Name " . $s1 . " " . strlen($s1) . "<BR>";
+    //# of Racks
+    //Station #
+
+    if (strstr($mystring, $s1)) {
+        $newphrase = "Number_of_Racks";
+    }
+    if ($mystring === "Station #") {
+        $newphrase = "Station_Number";
+    }
+    print "Column Name " . $newphrase . " " . strlen($newphrase) . "<BR>";
+    return $newphrase;
 }
 
 function setLabels($column_name) {
@@ -259,12 +299,12 @@ function createSQL($labels, $names, $types) {
 
     $insert = "INSERT INTO \"PoliceBlotter2\"." . $tablename . "data2(";
     for ($i = 0; $i < $labellength - 1; $i++) {
-        print $labels[$i] . "<BR>";
+        print hasSpace($labels[$i]) . "<BR>";
 
-        $insert .= $labels[$i] . ",";
+        $insert .= hasSpace($labels[$i]) . ",";
     }
-    print $labels[$labellength - 1] . "<BR>";
-    $insert .= $labels[$labellength - 1] . ")";
+    print hasSpace($labels[$labellength - 1]) . "<BR>";
+    $insert .= hasSpace($labels[$labellength - 1]) . ")";
 
 
     $values = " values(";
